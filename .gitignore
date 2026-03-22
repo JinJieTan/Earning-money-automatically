@@ -1,0 +1,6 @@
+.next
+node_modules
+.env
+data/*.db
+data/*.db-*
+npm-debug.log*
