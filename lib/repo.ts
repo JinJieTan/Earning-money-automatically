@@ -151,15 +151,90 @@ export function getDashboardSummary() {
 
   const recentLogs = db
     .prepare(
-      `SELECT stage, message, created_at FROM task_logs ORDER BY id DESC LIMIT 25`
+      `SELECT
+         task_logs.id,
+         task_logs.task_id,
+         task_logs.stage,
+         task_logs.message,
+         task_logs.screenshot_path,
+         task_logs.decision_reason,
+         task_logs.created_at,
+         tasks.platform AS platform,
+         tasks.title AS task_title
+       FROM task_logs
+       LEFT JOIN tasks ON tasks.id = task_logs.task_id
+       ORDER BY task_logs.id DESC
+       LIMIT 80`
     )
-    .all();
+    .all() as Array<{
+      id: number;
+      task_id: number | null;
+      stage: string;
+      message: string;
+      screenshot_path: string | null;
+      decision_reason: string | null;
+      created_at: string;
+      platform: string | null;
+      task_title: string | null;
+    }>;
 
   const taskStats = db
     .prepare(
       `SELECT status, COUNT(*) AS count FROM tasks GROUP BY status`
     )
     .all() as Array<{ status: string; count: number }>;
+
+  const errorSummary = db
+    .prepare(
+      `SELECT
+         COALESCE(tasks.platform, 'system') AS platform,
+         task_logs.message AS message,
+         COUNT(*) AS count
+       FROM task_logs
+       LEFT JOIN tasks ON tasks.id = task_logs.task_id
+       WHERE task_logs.stage = 'error'
+       GROUP BY COALESCE(tasks.platform, 'system'), task_logs.message
+       ORDER BY count DESC
+       LIMIT 6`
+    )
+    .all() as Array<{ platform: string; message: string; count: number }>;
+
+  const stageStats = db
+    .prepare(
+      `SELECT stage, COUNT(*) AS count
+       FROM task_logs
+       GROUP BY stage
+       ORDER BY count DESC`
+    )
+    .all() as Array<{ stage: string; count: number }>;
+
+  const hourlyActivityRaw = db
+    .prepare(
+      `SELECT strftime('%H', created_at) AS hour, COUNT(*) AS count
+       FROM task_logs
+       WHERE created_at >= datetime('now', '-24 hours')
+       GROUP BY hour
+       ORDER BY hour`
+    )
+    .all() as Array<{ hour: string; count: number }>;
+
+  const hourlyActivity = Array.from({ length: 24 }, (_, i) => {
+    const key = String(i).padStart(2, "0");
+    const matched = hourlyActivityRaw.find((row) => row.hour === key);
+    return { hour: key, count: matched?.count ?? 0 };
+  });
+
+  const platformTaskStats = db
+    .prepare(
+      `SELECT
+         platform,
+         SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed,
+         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
+         COUNT(*) AS total
+       FROM tasks
+       GROUP BY platform`
+    )
+    .all() as Array<{ platform: string; completed: number; failed: number; total: number }>;
 
   const state = getAgentState();
 
@@ -170,6 +245,10 @@ export function getDashboardSummary() {
     byPlatform,
     recentLogs,
     taskStats,
+    stageStats,
+    errorSummary,
+    hourlyActivity,
+    platformTaskStats,
     state
   };
 }

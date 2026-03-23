@@ -1,5 +1,16 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+
+const displayFont = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-display"
+});
+
+const monoFont = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono"
+});
 
 export const metadata: Metadata = {
   title: "Agent Earner",
@@ -9,7 +20,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body className={`${displayFont.variable} ${monoFont.variable}`}>{children}</body>
     </html>
   );
 }
