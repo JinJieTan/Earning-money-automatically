@@ -3,7 +3,6 @@ import { runFiverrTask } from "@/lib/agent/platforms/fiverr";
 import { runMediumTask } from "@/lib/agent/platforms/medium";
 import { runUpworkTask } from "@/lib/agent/platforms/upwork";
 import {
-  appendEarning,
   appendTaskLog,
   createTask,
   listRecentTasks,
@@ -100,15 +99,24 @@ export async function runAgentTick({ dryRun = true }: { dryRun?: boolean } = {})
       decisionReason: `platform=${task.platform} dryRun=${String(dryRun)}`
     });
 
-    const earned = result.ok ? task.expected_usd : 0;
-    if (earned > 0) {
-      appendEarning(task.id, task.platform, earned, dryRun ? "simulated earning" : "confirmed payout");
+    if (result.ok) {
+      appendTaskLog({
+        taskId: task.id,
+        stage: "payment",
+        message:
+          "Execution completed. Waiting for real payout confirmation before recording earnings."
+      });
     }
 
-    markTaskStatus(task.id, result.ok ? "completed" : "failed", earned);
+    markTaskStatus(task.id, result.ok ? "completed" : "failed", 0);
     upsertAgentState({ activeStage: "idle", activePlatform: null });
 
-    return { skipped: false, ok: result.ok, earned };
+    return {
+      skipped: false,
+      ok: result.ok,
+      estimatedUsd: result.ok ? task.expected_usd : 0,
+      confirmedUsd: 0
+    };
   } catch (error) {
     markTaskStatus(task.id, "failed", 0);
     appendTaskLog({

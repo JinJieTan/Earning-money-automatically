@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, control: getAgentControl() });
   }
 
-  const result = await runAgentTick({ dryRun: dryRun ?? true });
+  const dryRunValue = dryRun ?? process.env.AGENT_DRY_RUN !== "false";
+  const result = await runAgentTick({ dryRun: dryRunValue });
   return NextResponse.json({ ok: true, result });
 }

@@ -69,6 +69,29 @@ export function appendEarning(taskId: number, platform: string, amountUsd: numbe
     .run(taskId, platform, amountUsd, note ?? null);
 }
 
+export function confirmEarning(input: {
+  taskId: number;
+  platform: string;
+  amountUsd: number;
+  note?: string;
+}) {
+  const db = getDb();
+  const tx = db.transaction(() => {
+    db.prepare(
+      `INSERT INTO earnings(task_id, platform, amount_usd, note)
+       VALUES(?, ?, ?, ?)`
+    ).run(input.taskId, input.platform, input.amountUsd, input.note ?? null);
+
+    db.prepare(
+      `UPDATE tasks
+       SET actual_usd = COALESCE(actual_usd, 0) + ?, updated_at = datetime('now')
+       WHERE id = ?`
+    ).run(input.amountUsd, input.taskId);
+  });
+
+  tx();
+}
+
 export function upsertAgentState(input: {
   activePlatform?: string | null;
   activeStage: string;
@@ -96,15 +119,27 @@ export function getAgentState() {
 export function getDashboardSummary() {
   const db = getDb();
 
-  const totals = db
+  const totals = db.prepare(`SELECT COALESCE(SUM(amount_usd), 0) AS total_usd FROM earnings`).get() as {
+    total_usd: number;
+  };
+
+  const success = db
     .prepare(
       `SELECT
-         COALESCE(SUM(amount_usd), 0) AS total_usd,
          COALESCE(AVG(CASE WHEN status IN ('completed','failed') THEN CASE WHEN status='completed' THEN 1 ELSE 0 END END), 0) AS success_rate
-       FROM tasks
-       LEFT JOIN earnings ON earnings.task_id = tasks.id`
+       FROM tasks`
     )
-    .get() as { total_usd: number; success_rate: number };
+    .get() as { success_rate: number };
+
+  const pipeline = db
+    .prepare(
+      `SELECT
+         COALESCE(SUM(expected_usd), 0) AS expected_total,
+         COALESCE(SUM(actual_usd), 0) AS actual_total
+       FROM tasks
+       WHERE status = 'completed'`
+    )
+    .get() as { expected_total: number; actual_total: number };
 
   const byPlatform = db
     .prepare(
@@ -130,7 +165,8 @@ export function getDashboardSummary() {
 
   return {
     totalUsd: totals.total_usd,
-    successRate: totals.success_rate,
+    successRate: success.success_rate,
+    pendingSettlementUsd: Math.max(0, pipeline.expected_total - pipeline.actual_total),
     byPlatform,
     recentLogs,
     taskStats,

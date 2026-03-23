@@ -13,6 +13,7 @@ async function getSummary() {
   return (await res.json()) as {
     totalUsd: number;
     successRate: number;
+    pendingSettlementUsd: number;
     byPlatform: Array<{ platform: string; total: number }>;
     recentLogs: Array<{ stage: string; message: string; created_at: string }>;
     taskStats: Array<{ status: string; count: number }>;
@@ -35,7 +36,7 @@ export default async function DashboardPage() {
 
       <section className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border border-white/10 bg-panel p-4">
-          <p className="text-sm text-slate-300">累计收益</p>
+          <p className="text-sm text-slate-300">已确认收益</p>
           <p className="mt-2 text-3xl font-bold text-good">${data.totalUsd.toFixed(2)}</p>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-700">
             <div className="h-full bg-good" style={{ width: `${progress}%` }} />
@@ -44,15 +45,16 @@ export default async function DashboardPage() {
         </div>
 
         <div className="rounded-xl border border-white/10 bg-panel p-4">
-          <p className="text-sm text-slate-300">任务成功率</p>
-          <p className="mt-2 text-3xl font-bold text-accent">{(data.successRate * 100).toFixed(1)}%</p>
+          <p className="text-sm text-slate-300">待确认流水</p>
+          <p className="mt-2 text-3xl font-bold text-warn">${data.pendingSettlementUsd.toFixed(2)}</p>
         </div>
 
         <div className="rounded-xl border border-white/10 bg-panel p-4">
-          <p className="text-sm text-slate-300">当前状态</p>
+          <p className="text-sm text-slate-300">当前状态 / 成功率</p>
           <p className="mt-2 text-lg font-semibold">
             {data.state.active_platform ?? "none"} / {data.state.active_stage}
           </p>
+          <p className="mt-1 text-xs text-slate-400">{(data.successRate * 100).toFixed(1)}%</p>
         </div>
       </section>
 

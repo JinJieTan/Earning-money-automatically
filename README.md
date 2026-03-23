@@ -52,6 +52,7 @@ npm run agent
 - `POST /api/tasks`：创建任务（需鉴权）
 - `GET /api/agent`：Agent 控制与状态（需鉴权）
 - `POST /api/agent`：`start|stop|tick`（需鉴权）
+- `POST /api/earnings/confirm`：确认真实到账并写入收益（需鉴权）
 
 ## 4. 默认安全边界
 
@@ -63,7 +64,8 @@ npm run agent
 ## 5. 当前限制
 
 - 平台自动化仅为 v1 骨架（登录、发单、投递选择器流程未完整接入）
-- 默认建议 `AGENT_DRY_RUN=true`，收益记账为模拟值
+- 默认建议 `AGENT_DRY_RUN=true`
+- 当前版本不会自动把 `expected_usd` 写入真实收益，必须通过 `POST /api/earnings/confirm` 确认到账
 - 未实现多实例任务抢占锁（生产建议增加任务 lease）
 
 ## 6. Docker 运行
